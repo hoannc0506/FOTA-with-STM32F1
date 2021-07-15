@@ -12,6 +12,7 @@ int main()
         printf("Error! Cannot open file");
         exit(1);
     }
+    /* The CRC_Value can be calculated by the CRC_FOTA in this FOTA project*/
     unsigned int CRC_Value = 0xc098779au;
 
     fwrite(&CRC_Value, sizeof(CRC_Value), 1, fptr);
