@@ -121,18 +121,39 @@ int main(void)
   /* Clear Pending Interrupt Request, turn  off System Tick*/
   HAL_DeInit();
   /* Turn off fault harder*/
-  SCB->SHCSR &= ~( SCB_SHCSR_USGFAULTENA_Msk |\
-  SCB_SHCSR_BUSFAULTENA_Msk | \
-  SCB_SHCSR_MEMFAULTENA_Msk ) ;
-
+  /* Refer to PM0056 STM32F1 page 141/156:
+   * The SHCSR enables the system handlers, and indicates:
+   * Bit 18: USGFAULTENA-> Usage fault enable bit, set to 1 to enable
+   * Bit 17: BUSFAULTENA-> Bus fault enable bit, set to 1 to enable
+   * Bit 16: MEMFAULTENA-> Memory management fault enable bit, set to 1 to enable
+   * To turn off these fault harder and don't change another bit, we just need to do:
+   * 	SCB->SHCSR &= ~(0x111UL<<16)
+   * The below line of code does the same work
+   * */
+//  SCB->SHCSR &= ~(SCB_SHCSR_USGFAULTENA_Msk|SCB_SHCSR_BUSFAULTENA_Msk|SCB_SHCSR_MEMFAULTENA_Msk);
+  SCB->SHCSR &= ~(0x0111UL<<16);
+  /* The Reset_Handler was modified in file starup_stm32f103xx.s as weak function
+   * We can override it to use our Reset_Handler() function
+   *
+   * To jump to another firmware called NewFirmware in flash memory, we need to set
+   * the processor's PC at the (ADDRESS_START_NewFirmware + 4). Why ?
+   * In case that the memory start at 0x0000_0000
+   * when ARM Cortex processor is turned on or reset, the processor fetches two words located at 0x0000_0000
+   * and 0x0000_0004 in memory. The processor uses the word located at 0x00000000 to initialize
+   * the main stack pointer (MSP), and the other one at 0x00000004 to set up the program counter (PC)
+   * The word stored at 0x00000004 is the memory address of the Reset_Handler() procedure,
+   * which is determined by the compiler and link script. Typically, Reset_Handler calls main(),
+   * which is the user's application code. After PC is initialized, the program begins execution.
+   * */
   /* Set Main Stack Pointer*/
   __set_MSP(*((volatile uint32_t*) ADDRESS_START_APPLICATION));
 
   uint32_t JumpAddress = *((volatile uint32_t*) (ADDRESS_START_APPLICATION + 4));
 
   /* Set Program Counter to Blink LED Application Address*/
-  void (*reset_handler)(void) = (void*)JumpAddress;
-  reset_handler();
+
+  void (*Reset_Handler)(void) = (void*)JumpAddress;
+  Reset_Handler();
 
   /* USER CODE END 2 */
 
